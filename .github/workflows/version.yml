@@ -4,14 +4,15 @@ on:
   push:
     branches: [develop]
     ignore-tags: ['*']
-    
+
 jobs:
   version:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@master
+      - uses: actions/checkout@v2
         with:
           fetch-depth: 0
+          persist-credentials: false
 
       - name: Setup Python environment
         uses: actions/setup-python@v1.1.1
@@ -24,25 +25,21 @@ jobs:
           sudo pip3 install bump2version
           git config --global user.email "shaun@samsite.ca"
           git config --global user.name "Shaun Martin"
-          
+
           # bump the patch version, commit, and tag.
           bump2version patch --message "[gitbot] autobump: {current_version} → {new_version}"
-          
+
           # get the new tag and extract major.minor version for the release branch name.
           export NEWTAG="$(git tag --sort -v:refname | head -n 1)"
           export MAJORMINOR="v$(cat VERSION | cut -f1,2 -d.)"
           echo "Major/Minor Version: ${MAJORMINOR}"
-          
+
           # create remote URL using github's provided info
-          export REMOTE=https://inhumantsar:${{ secrets.GITHUB_PAT }}@github.com/${GITHUB_REPOSITORY}.git
-          
+          export REMOTE=https://inhumantsar:${secrets.GITHUB_PAT}@github.com/${GITHUB_REPOSITORY}.git
+
           # checkout or create the release branch as necessary, then merge develop into it and push everything.
-          git fetch origin refs/heads/release/$MAJORMINOR:refs/remotes/origin/release/$MAJORMINOR \
-              || echo "WARNING: Unable to fetch release branch, will attempt to create it" && export CREATE_BRANCH=1
-          [[ $CREATE_BRANCH -eq 1 ]] && git checkout -b release/$MAJORMINOR \
-              || git checkout -b release/$MAJORMINOR origin/release/$MAJORMINOR
+          git fetch origin refs/heads/release/$MAJORMINOR:refs/remotes/origin/release/$MAJORMINOR || echo "WARNING: Unable to fetch release branch"
+          git checkout -b release/$MAJORMINOR origin/release/$MAJORMINOR
           git merge "${NEWTAG}" -m "Merging in ${NEWTAG} from develop."
           git remote set-url origin $REMOTE
           git push origin develop && git push origin --tags && git push origin release/$MAJORMINOR
-          
-          
